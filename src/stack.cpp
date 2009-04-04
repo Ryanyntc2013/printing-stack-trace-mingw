@@ -103,8 +103,8 @@ namespace
 
                 // Load symbol table
                 unsigned dummy = 0;
-                if (bfd_read_minisymbols(abfd_, FALSE, (void **)&symbol_table_, &dummy) == 0 &&
-                    bfd_read_minisymbols(abfd_, TRUE, (void **)&symbol_table_, &dummy) < 0)
+                if (bfd_read_minisymbols(abfd_, FALSE, reinterpret_cast<void **>(&symbol_table_), &dummy) == 0 &&
+                    bfd_read_minisymbols(abfd_, TRUE, reinterpret_cast<void **>(&symbol_table_), &dummy) < 0)
                 {
                     free(symbol_table_);
                     bfd_close(abfd_);
@@ -260,7 +260,7 @@ namespace
         context.ContextFlags = CONTEXT_FULL;
 
         windows_dll kernel32("kernel32.dll");
-        void (WINAPI *RtlCaptureContext_) (CONTEXT*) = kernel32.function("RtlCaptureContext");
+        void (WINAPI *RtlCaptureContext_)(CONTEXT*) = kernel32.function("RtlCaptureContext");
 
         RtlCaptureContext_(&context);
 
@@ -303,13 +303,13 @@ namespace
 
                 if (func.empty())
                 {
-                    DWORD displacement = 0; // dummy variable
-                    BOOL got_symbol = SymGetSymFromAddr(process, frame.AddrPC.Offset, &displacement, symbol);
+                    DWORD dummy = 0;
+                    BOOL got_symbol = SymGetSymFromAddr(process, frame.AddrPC.Offset, &dummy, symbol);
                     func = got_symbol ? symbol->Name : "[unknown function]";
                 }
             #else
-                DWORD displacement = 0; // dummy variable
-                BOOL got_symbol = SymGetSymFromAddr(process, frame.AddrPC.Offset, &displacement, symbol);
+                DWORD dummy = 0;
+                BOOL got_symbol = SymGetSymFromAddr(process, frame.AddrPC.Offset, &dummy, symbol);
                 std::string func = got_symbol ? symbol->Name : "[unknown function]";
             #endif
 
