@@ -1,0 +1,16 @@
+sources : common : *.cpp
+
+defines : debug : DEBUG
+defines : release : NDEBUG
+
+flags : common : strict iso
+flags : debug : debug optimize-off
+flags : release : optimize
+
+include : common : ../include
+depends : common : platforms/$(toolset)
+
+target : common : dbg
+type : common : static-library
+
+dir : common : obj/$(toolset)/$(variant)
