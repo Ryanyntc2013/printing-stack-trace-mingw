@@ -160,12 +160,12 @@ namespace
     #endif // __MINGW32__
 
     // g++ spouts warnings if you use {0} to initialize PODs. So we use this instead:
-    struct
+    const struct
     {
         template<typename POD>
         operator POD () const { POD p; std::memset(&p, 0, sizeof p); return p; }
     }
-    zero;
+    empty_pod = { };
 
     // Wraps a FARPROC. Implicitly convertible to any kind of pointer-to-function.
     // Avoids having reinterpret casts all over the place.
@@ -255,8 +255,8 @@ namespace
         bfd_context bfdc;
         #endif
 
-        STACKFRAME frame = zero;
-        CONTEXT context = zero;
+        STACKFRAME frame = empty_pod;
+        CONTEXT context = empty_pod;
         context.ContextFlags = CONTEXT_FULL;
 
         windows_dll kernel32("kernel32.dll");
@@ -395,7 +395,6 @@ namespace dbg
         module(module)
     {
     }
-
 
     std::ostream &operator<< (std::ostream &out, const stack_frame &frame)
     {
