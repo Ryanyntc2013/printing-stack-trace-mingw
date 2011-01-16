@@ -5,6 +5,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <cstdlib>
 #include <iomanip>
 #include <ostream>
 #include <stdexcept>
@@ -318,7 +319,7 @@ namespace
         }
     }
 #elif defined(__GNUC__)
-    #if defined(__i386__)
+    #if defined(__i386__) || defined(__amd64__)
 
     void fill_frames(std::list<dbg::stack_frame> &frames, dbg::stack::depth_type limit)
     {
@@ -375,7 +376,7 @@ namespace
     }
 
     #else
-        // GNU, but neither x86 or PPC
+        // GNU, but not x86, x64 nor PPC
         #error "Sorry but dbg::stack is not supported on this architecture"
     #endif
 #else
