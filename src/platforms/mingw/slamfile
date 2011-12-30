@@ -1,1 +1,0 @@
-libs : common : bfd iberty imagehlp
