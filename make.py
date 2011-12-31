@@ -23,7 +23,9 @@ def staticlib(kit):
         syslibs = ['imagehlp']
 
         if 'gpp' in kit.installed():
-            syslibs += ['bfd', 'iberty', 'intl', 'iconv']
+            syslibs += ['bfd', 'iberty']
+            if kit.cpp.compiler.version >= (4,5):
+                syslibs += ['intl', 'iconv']
 
     return properties(
         libs = [kit.cpp.lib('stack_trace', opt)],
