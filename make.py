@@ -3,8 +3,8 @@ import doozer
 project('stack_trace')
 
 # Variables
-flags = needvar('stack_trace.flags', 'flags', description='list of abstract build flags (see doozer docs)')
-platform = needvar('stack_trace.platform', description='"windows" or "osx"')
+flags = cfgvar('stack_trace.flags', 'flags', description='list of abstract build flags (see doozer docs)')
+platform = cfgvar('stack_trace.platform', description='"windows" or "osx"')
 
 
 # Builds a static library for stack_trace.
