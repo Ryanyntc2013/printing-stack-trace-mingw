@@ -34,7 +34,7 @@ def staticlib(kit):
     )
 
 @target
-def example(kit):
+def basic_example(kit):
     stack_trace = staticlib(kit)
 
     opt = kit.cpp.opt(*flags)
@@ -44,4 +44,12 @@ def example(kit):
     opt.libs += stack_trace.libs
     opt.syslibs += stack_trace.syslibs
 
-    return kit.cpp.exe('example', opt)
+    return process(kit.cpp.exe('example', opt))
+
+@target
+def examples(kit):
+    return [basic_example(kit)]
+
+@target
+def default(kit):
+    examples(kit)
