@@ -1,5 +1,3 @@
-import doozer
-
 project('stack_trace')
 
 # Variables
