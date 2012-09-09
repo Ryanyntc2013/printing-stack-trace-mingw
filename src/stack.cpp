@@ -14,25 +14,31 @@
 #include "dbg/stack.hpp"
 
 #if defined(_WIN32)
-    #include <windows.h>
-    #include <imagehlp.h>
+#   include <windows.h>
+#   include <imagehlp.h>
 
-    #if defined(__MINGW32__)
-        #include <bfd.h> // link against libbfd and libiberty
-        #include <psapi.h> // link against psapi
-        #include <cxxabi.h>
-    #endif
+#   if defined(__MINGW32__)
+#       include <bfd.h> // link against libbfd and libiberty
+#       include <psapi.h> // link against psapi
+#       include <cxxabi.h>
+#   endif
 
 #elif defined(__GNUC__)
-    #include <dlfcn.h>
-    #include <cxxabi.h>
+#   include <dlfcn.h>
+#   include <cxxabi.h>
 #endif
 
 namespace
 {
+    const char * const unknown_function = "[unknown function]";
+    const char * const unknown_module = "[unknown module]";
+
 #if defined(__GNUC__)
     std::string demangle(const char *name)
     {
+        if (!name)
+            return unknown_function;
+
         int status = 0;
         char *d = 0;
         std::string ret = name;
@@ -62,7 +68,7 @@ namespace
             uncopyable &operator= (const uncopyable &);
     };
 
-    #if defined(__MINGW32__)
+#if defined(__MINGW32__)
 
     // Provides a means to translate a program counter offset in to the name of the corresponding function.
     class bfd_context : uncopyable
@@ -158,7 +164,7 @@ namespace
             asymbol **symbol_table_;
     };
 
-    #endif // __MINGW32__
+#endif // __MINGW32__
 
     // g++ spouts warnings if you use {0} to initialize PODs. So we use this instead:
     const struct
@@ -252,9 +258,9 @@ namespace
         lock lk(g_fill_frames_mtx);
 
         symbol_context sc;
-        #ifdef __MINGW32__
+#ifdef __MINGW32__
         bfd_context bfdc;
-        #endif
+#endif
 
         STACKFRAME frame = empty_pod;
         CONTEXT context = empty_pod;
@@ -265,12 +271,21 @@ namespace
 
         RtlCaptureContext_(&context);
 
+#if defined(_M_AMD64)
+        frame.AddrPC.Offset = context.Rip;
+        frame.AddrPC.Mode = AddrModeFlat;
+        frame.AddrStack.Offset = context.Rsp;
+        frame.AddrStack.Mode = AddrModeFlat;
+        frame.AddrFrame.Offset = context.Rbp;
+        frame.AddrFrame.Mode = AddrModeFlat;
+#else
         frame.AddrPC.Offset = context.Eip;
         frame.AddrPC.Mode = AddrModeFlat;
         frame.AddrStack.Offset = context.Esp;
         frame.AddrStack.Mode = AddrModeFlat;
         frame.AddrFrame.Offset = context.Ebp;
         frame.AddrFrame.Mode = AddrModeFlat;
+#endif
 
         HANDLE process = GetCurrentProcess();
         HANDLE thread = GetCurrentThread();
@@ -280,7 +295,13 @@ namespace
         char symbol_buffer[sizeof(IMAGEHLP_SYMBOL) + 255];
         char module_name_raw[MAX_PATH];
 
-        while(StackWalk(IMAGE_FILE_MACHINE_I386, process, thread, &frame, &context, 0, SymFunctionTableAccess, SymGetModuleBase, 0))
+#if defined(_M_AMD64)
+        const DWORD machine = IMAGE_FILE_MACHINE_AMD64;
+#else
+        const DWORD machine = IMAGE_FILE_MACHINE_I386;
+#endif
+
+        while(StackWalk(machine, process, thread, &frame, &context, 0, SymFunctionTableAccess, SymGetModuleBase, 0))
         {
             if (skip)
             {
@@ -294,32 +315,36 @@ namespace
             symbol->SizeOfStruct = (sizeof *symbol) + 255;
             symbol->MaxNameLength = 254;
 
+#if defined(_WIN64)
+            DWORD64 module_base = SymGetModuleBase(process, frame.AddrPC.Offset);
+#else
             DWORD module_base = SymGetModuleBase(process, frame.AddrPC.Offset);
-            std::string module_name = "[unknown module]";
+#endif
+            std::string module_name = unknown_module;
             if (module_base && GetModuleFileNameA(reinterpret_cast<HINSTANCE>(module_base), module_name_raw, MAX_PATH))
                 module_name = module_name_raw;
 
-            #if defined(__MINGW32__)
+#if defined(__MINGW32__)
                 std::string func = bfdc.get_function_name(frame.AddrPC.Offset);
 
                 if (func.empty())
                 {
                     DWORD dummy = 0;
                     BOOL got_symbol = SymGetSymFromAddr(process, frame.AddrPC.Offset, &dummy, symbol);
-                    func = got_symbol ? symbol->Name : "[unknown function]";
+                    func = got_symbol ? symbol->Name : unknown_function;
                 }
-            #else
+#else
                 DWORD dummy = 0;
                 BOOL got_symbol = SymGetSymFromAddr(process, frame.AddrPC.Offset, &dummy, symbol);
-                std::string func = got_symbol ? symbol->Name : "[unknown function]";
-            #endif
+                std::string func = got_symbol ? symbol->Name : unknown_function;
+#endif
 
             dbg::stack_frame f(reinterpret_cast<const void *>(frame.AddrPC.Offset), func, module_name);
             frames.push_back(f);
         }
     }
 #elif defined(__GNUC__)
-    #if defined(__i386__) || defined(__amd64__)
+#   if defined(__i386__) || defined(__amd64__)
 
     void fill_frames(std::list<dbg::stack_frame> &frames, dbg::stack::depth_type limit)
     {
@@ -351,7 +376,7 @@ namespace
         }
     }
 
-    #elif defined(__ppc__)
+#   elif defined(__ppc__)
 
     void fill_frames(std::list<dbg::stack_frame> &frames, dbg::stack::depth_type limit)
     {
@@ -375,13 +400,13 @@ namespace
         while (frame && ip);
     }
 
-    #else
+#   else
         // GNU, but not x86, x64 nor PPC
-        #error "Sorry but dbg::stack is not supported on this architecture"
-    #endif
+#       error "Sorry but dbg::stack is not supported on this architecture"
+#   endif
 #else
     // Unsupported compiler
-    #error "Sorry but dbg::stack is not supported on this compiler"
+#   error "Sorry but dbg::stack is not supported on this compiler"
 #endif
 
 } // close anonymous namespace
